@@ -16,9 +16,10 @@ def iterator(size_x, size_y, factor_x, factor_y):
 class Window(pyglet.window.Window):
     """
     This is an framework around drawing 3d graphs of mathematical functions
+    Use WSAD to move around and arrow keys to rotate
     """
 
-    def __init__(self, function: typing.Callable, size=(100, 100, 100, 100), count_per_tick=3, start_direct=True):
+    def __init__(self, function: typing.Callable, size=(100, 100, 100, 100), count_per_tick=3, start_direct=True, color=(255, 255, 255)):
         super().__init__(caption="Jugend Forscht")
         self.positions = iterator(*size)
         self.function = function
@@ -31,6 +32,7 @@ class Window(pyglet.window.Window):
         self.count_per_tick = count_per_tick
         self.strafe = [0, 0]
         self.r_strafe = [0, 0]
+        self.color = color
 
     def on_draw(self):
         self.clear()
@@ -52,7 +54,8 @@ class Window(pyglet.window.Window):
                 positions.append((x, v, y))
             except StopIteration:
                 break
-        self.elements.add(self.batch.add(len(positions), GL_POINTS, None, ("v3f", sum(positions, tuple())), ("c3B", (255,)*len(positions)*3)))
+        self.elements.add(self.batch.add(len(positions), GL_POINTS, None, ("v3f", sum(positions, tuple())),
+                                         ("c{}B".format(len(self.color)), self.color*len(positions))))
 
     def changeTargetFunction(self, function: typing.Callable, remove_old=True, size=(100, 100, 100, 100)):
         self.positions = iterator(*size)
