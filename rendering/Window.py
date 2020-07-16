@@ -44,13 +44,15 @@ class Window(pyglet.window.Window):
         self.position = (x + dx * d, y + dy * d, z + dz * d)
         self.rotate_view(self.r_strafe[1] * dt * 10, -self.r_strafe[0] * dt * 10)
         if not self.running: return
+        positions = []
         for _ in range(self.count_per_tick):
             try:
                 x, y = next(self.positions)
                 v = self.function(x, y)
-                self.elements.add(self.batch.add(1, GL_POINTS, None, ("v3f", (x, v, y)), ("c3B", (255, 255, 255))))
+                positions.append((x, v, y))
             except StopIteration:
-                return
+                break
+        self.elements.add(self.batch.add(len(positions), GL_POINTS, None, ("v3f", sum(positions, tuple())), ("c3B", (255,)*len(positions)*3)))
 
     def changeTargetFunction(self, function: typing.Callable, remove_old=True, size=(100, 100, 100, 100)):
         self.positions = iterator(*size)
