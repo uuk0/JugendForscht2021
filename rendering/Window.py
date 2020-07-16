@@ -17,9 +17,15 @@ class Window(pyglet.window.Window):
     """
     This is an framework around drawing 3d graphs of mathematical functions
     Use WSAD to move around and arrow keys to rotate
+
+    Create an new Window for loading:
+        Window(<function>)
+    Start main loop:
+        <window-instance>.mainloop() or pyglet.app.run()
     """
 
     def __init__(self, function: typing.Callable, size=(100, 100, 100, 100), count_per_tick=3, start_direct=True, color=(255, 255, 255)):
+        # todo: add option for background color
         super().__init__(caption="Jugend Forscht")
         self.positions = iterator(*size)
         self.function = function
@@ -35,6 +41,7 @@ class Window(pyglet.window.Window):
         self.color = color
 
     def on_draw(self):
+        # todo: add some info label
         self.clear()
         self.set_3d()
         self.batch.draw()
@@ -47,6 +54,7 @@ class Window(pyglet.window.Window):
         self.rotate_view(self.r_strafe[1] * dt * 10, -self.r_strafe[0] * dt * 10)
         if not self.running: return
         positions = []
+        # todo: collect optional colors
         for _ in range(self.count_per_tick):
             try:
                 x, y = next(self.positions)
@@ -103,6 +111,8 @@ class Window(pyglet.window.Window):
         elif symbol == key.ENTER:
             self.running = not self.running
 
+        # todo: add screenshot tool
+
     def on_key_release(self, symbol, modifiers):
         if symbol == key.W or symbol == key.S: self.strafe[0] = 0
         if symbol == key.A or symbol == key.D: self.strafe[1] = 0
@@ -158,7 +168,7 @@ def mandelbrot(x, y):
     return 0
 
 
-Window(mandelbrot, count_per_tick=200, size=(400, 400, 200, 200), start_direct=False).mainloop()
+Window(mandelbrot, count_per_tick=800, size=(800, 800, 200, 200), start_direct=False).mainloop()
 
 
 
