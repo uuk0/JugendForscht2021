@@ -14,6 +14,10 @@ def iterator(size_x, size_y, factor_x, factor_y):
 
 
 class Window(pyglet.window.Window):
+    """
+    This is an framework around drawing 3d graphs of mathematical functions
+    """
+
     def __init__(self, function: typing.Callable, size=(100, 100, 100, 100), count_per_tick=3, start_direct=True):
         super().__init__(caption="Jugend Forscht")
         self.positions = iterator(*size)
@@ -47,6 +51,13 @@ class Window(pyglet.window.Window):
                 self.elements.add(self.batch.add(1, GL_POINTS, None, ("v3f", (x, v, y)), ("c3B", (255, 255, 255))))
             except StopIteration:
                 return
+
+    def changeTargetFunction(self, function: typing.Callable, remove_old=True, size=(100, 100, 100, 100)):
+        self.positions = iterator(*size)
+        self.function = function
+        if remove_old:
+            [e.delete() for e in self.elements]
+            self.elements.clear()
 
     def set_3d(self):
         """
