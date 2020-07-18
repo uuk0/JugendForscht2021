@@ -7,10 +7,12 @@ from pyglet.gl import *
 from pyglet.window import key
 
 
-def iterator(size_x, size_y, factor_x, factor_y):
-    for x in range(-size_x // 2, size_x // 2 + 1):
-        for y in range(-size_y // 2, size_y // 2 + 1):
-            yield x / factor_x, y / factor_y
+class IPointGenerator:
+    def iteratePositions(self) -> typing.Iterator:
+        raise NotImplementedError()
+
+    def getPositionForPosition(self, position) -> typing.Tuple[float, float, float]:
+        raise NotImplementedError()
 
 
 class Window(pyglet.window.Window):
@@ -19,16 +21,19 @@ class Window(pyglet.window.Window):
     Use WSAD to move around and arrow keys to rotate
 
     Create an new Window for loading:
-        Window(<function>)
+        Window(<IPointGenerator-instance>)
     Start main loop:
         <window-instance>.mainloop() or pyglet.app.run()
+
+    Example:
+        Window(FunctionBasedGenerator(lambda x, y: x * y)).mainloop()
     """
 
-    def __init__(self, function: typing.Callable, size=(100, 100, 100, 100), count_per_tick=3, start_direct=True, color=(255, 255, 255)):
+    def __init__(self, generator: IPointGenerator, count_per_tick=10, start_direct=True, color=(255, 255, 255)):
         # todo: add option for background color
         super().__init__(caption="Jugend Forscht")
-        self.positions = iterator(*size)
-        self.function = function
+        self.positions = generator.iteratePositions()
+        self.generator = generator
         self.batch = pyglet.graphics.Batch()
         pyglet.clock.schedule_interval(self.do_next, .1)
         self.running = start_direct
@@ -51,23 +56,22 @@ class Window(pyglet.window.Window):
         dx, dy, dz = self.get_motion_vector()
         x, y, z = self.position
         self.position = (x + dx * d, y + dy * d, z + dz * d)
-        self.rotate_view(self.r_strafe[1] * dt * 10, -self.r_strafe[0] * dt * 10)
+        self.rotate_view(self.r_strafe[1] * dt * 40, -self.r_strafe[0] * dt * 40)
         if not self.running: return
         positions = []
         # todo: collect optional colors
         for _ in range(self.count_per_tick):
             try:
-                x, y = next(self.positions)
-                v = self.function(x, y)
-                positions.append((x, v, y))
+                p = next(self.positions)
+                positions.append(self.generator.getPositionForPosition(p))
             except StopIteration:
                 break
         self.elements.add(self.batch.add(len(positions), GL_POINTS, None, ("v3f", sum(positions, tuple())),
                                          ("c{}B".format(len(self.color)), self.color*len(positions))))
 
-    def changeTargetFunction(self, function: typing.Callable, remove_old=True, size=(100, 100, 100, 100)):
-        self.positions = iterator(*size)
-        self.function = function
+    def changeTargetFunction(self, generator: IPointGenerator, remove_old=True):
+        self.positions = generator.iteratePositions()
+        self.generator = generator
         if remove_old:
             [e.delete() for e in self.elements]
             self.elements.clear()
@@ -152,23 +156,52 @@ class Window(pyglet.window.Window):
         self.rotation = (x, y)
 
 
-# Window(lambda x, z: abs(complex(x, z) ** 2), count_per_tick=100, size=(100, 100, 10, 10)).mainloop()
-# Window(lambda x, z: (complex(x, z) ** 2).real, count_per_tick=100, size=(100, 100, 10, 10)).mainloop()
-# Window(lambda x, z: (complex(x, z) ** 2).imag, count_per_tick=100, size=(100, 100, 10, 10)).mainloop()
-# Window(lambda x, y: abs(complex(x, y) * (complex(x, y) ** 2 + 1)), count_per_tick=100, size=(100, 100, 10, 10)).mainloop()
+class FunctionBasedGenerator(IPointGenerator):
+    def __init__(self, function: typing.Callable, size=(100, 100, 10, 10)):
+        self.function = function
+        self.size = size
+
+    def iteratePositions(self) -> typing.Iterator:
+        for x in range(-self.size[0] // 2, self.size[0] // 2 + 1):
+            for y in range(-self.size[1] // 2, self.size[1] // 2 + 1):
+                yield x / self.size[2], y / self.size[3]
+
+    def getPositionForPosition(self, position) -> typing.Tuple[float, float, float]:
+        x, y = position
+        return x, self.function(*position), y
 
 
-def mandelbrot(x, y):
-    v = complex(0, 0)
-    t = complex(x, y)
-    for iteration in range(400):
-        v = v ** 2 + t
-        if abs(v) > 2:
-            return 1 / iteration * 100 if iteration != 0 else 10
-    return 0
+# Window(FunctionBasedGenerator(lambda x, z: abs(complex(x, z) ** 2), size=(100, 100, 10, 10)), count_per_tick=100).mainloop()
+# Window(FunctionBasedGenerator(lambda x, z: (complex(x, z) ** 2).real, size=(100, 100, 10, 10)), count_per_tick=100).mainloop()
+# Window(FunctionBasedGenerator(lambda x, z: (complex(x, z) ** 2).imag, size=(100, 100, 10, 10)), count_per_tick=100).mainloop()
+# Window(FunctionBasedGenerator(lambda x, y: abs(complex(x, y) * (complex(x, y) ** 2 + 1)), size=(100, 100, 10, 10)), count_per_tick=100).mainloop()
 
 
-Window(mandelbrot, count_per_tick=800, size=(800, 800, 200, 200), start_direct=False).mainloop()
+class MandelbrotGenerator(IPointGenerator):
+    def __init__(self, size=(100, 100, 10, 10), max_iterations=400, stretch_factor=100, power=2, outer_limit=2):
+        self.size = size
+        self.max_iterations = max_iterations
+        self.stretch_factor = stretch_factor
+        self.power = power
+        self.outer_limit = outer_limit
+
+    def iteratePositions(self) -> typing.Iterator:
+        for x in range(-self.size[0] // 2, self.size[0] // 2 + 1):
+            for y in range(-self.size[1] // 2, self.size[1] // 2 + 1):
+                yield x / self.size[2], y / self.size[3]
+
+    def getPositionForPosition(self, position) -> typing.Tuple[float, float, float]:
+        v = complex(0, 0)
+        x, y = position
+        t = complex(x, y)
+        for iteration in range(self.max_iterations):
+            v = v ** self.power + t
+            if abs(v) > self.outer_limit:
+                return x, 1 / iteration * self.stretch_factor if iteration != 0 else 10, y
+        return x, 0, y
+
+
+Window(MandelbrotGenerator(size=(800, 800, 200, 200), outer_limit=5, stretch_factor=200), count_per_tick=1000, start_direct=False).mainloop()
 
 
 
